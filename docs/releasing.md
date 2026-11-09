@@ -47,7 +47,7 @@ The Catalog's format is Laneway's: `internal/catalog/catalog.go` here is a copy 
 
 ## Repository settings
 
-- **Secret `LANEWAY_DEPLOY_KEY`**: the private half of a read-only deploy key on `lanewayhq/laneway`, so CI can check out and build `lane`. (`LANEWAY_REPO_TOKEN`, a fine-grained token with read access to its contents, also works when no deploy key is set.)
+- **Secret `LANEWAY_DEPLOY_KEY`** (optional): the private half of a read-only deploy key on `lanewayhq/laneway`. CI checks out and builds `lane` from it, and since the repository is public, the workflow's own token is enough without it; the key (or `LANEWAY_REPO_TOKEN`, a fine-grained token with read access to its contents) is only needed if it goes private again. Pull requests from forks get no secrets, so they always use the workflow's token.
 - **Variable `LANEWAY_REF`** (optional): the `lanewayhq/laneway` branch, tag or commit CI tests against. It defaults to `main`. The CI workflow can also be run by hand against another ref.
 - **Settings → Actions → General → Workflow permissions**: allow GitHub Actions to create pull requests, for the Catalog pull requests.
 - **Environment `catalog-signing`**: required reviewer the maintainer, deployment branches limited to `main`, holding the secret `CATALOG_SIGNING_KEY` (see [keys/README.md](../keys/README.md)). Admins can change these rules, so keep the org's and this repository's admins to the maintainer.
