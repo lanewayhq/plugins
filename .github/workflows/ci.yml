@@ -1,0 +1,50 @@
+name: CI
+
+# Tests every Plugin against a Laneway build: the SDK's and tools' own
+# tests, `lane plugin test` for each Plugin, and the e2e tests, which drive
+# a real `lane` (and its daemon) with each Plugin's release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      laneway_ref:
+        description: The lanewayhq/laneway branch, tag or commit to test against
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # The Laneway to test against: the workflow's input, else the repository
+  # variable LANEWAY_REF, else the Plugin system's integration branch.
+  LANEWAY_REF: ${{ inputs.laneway_ref || vars.LANEWAY_REF || 'spec/48-plugin-system' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build lane
+        id: lane
+        uses: ./.github/actions/lane
+        with:
+          token: ${{ secrets.LANEWAY_REPO_TOKEN }}
+          ref: ${{ env.LANEWAY_REF }}
+      - name: Vet and test the SDK and tools
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          test -z "$unformatted" || { echo "$unformatted"; echo 'run gofmt -w on the files above'; exit 1; }
+          go vet ./...
+          go vet -tags e2e ./e2e
+          go test ./...
+      - name: lane plugin test, for every Plugin
+        env:
+          LANE: ${{ steps.lane.outputs.lane }}
+        run: go run ./cmd/plugins test
+      - name: e2e tests against the Laneway build
+        env:
+          LANE: ${{ steps.lane.outputs.lane }}
+          LANEWAY_SRC: ${{ steps.lane.outputs.src }}
+        run: go test -tags e2e -count=1 -v ./e2e

@@ -1,0 +1,42 @@
+name: Build lane
+description: >
+  Checks out lanewayhq/laneway (private: it needs a token that can read it)
+  at a ref, sets up Go, and builds the lane binary.
+inputs:
+  token:
+    description: A token that can read lanewayhq/laneway (the LANEWAY_REPO_TOKEN secret).
+    required: true
+  ref:
+    description: The lanewayhq/laneway branch, tag or commit to build.
+    required: true
+outputs:
+  lane:
+    description: The lane binary.
+    value: ${{ steps.build.outputs.lane }}
+  src:
+    description: Laneway's source.
+    value: ${{ github.workspace }}/.laneway
+runs:
+  using: composite
+  steps:
+    - name: Check out lanewayhq/laneway at ${{ inputs.ref }}
+      uses: actions/checkout@v4
+      with:
+        repository: lanewayhq/laneway
+        ref: ${{ inputs.ref }}
+        token: ${{ inputs.token }}
+        path: .laneway
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache-dependency-path: |
+          go.sum
+          .laneway/go.sum
+    - name: Build lane
+      id: build
+      shell: bash
+      run: |
+        cd .laneway
+        go build -o "$RUNNER_TEMP/lane" ./cmd/lane
+        echo "lane=$RUNNER_TEMP/lane" >> "$GITHUB_OUTPUT"
+        echo "Built lane from lanewayhq/laneway $(git rev-parse HEAD) (${{ inputs.ref }})" >> "$GITHUB_STEP_SUMMARY"
