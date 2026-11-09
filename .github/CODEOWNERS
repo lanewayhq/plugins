@@ -1,0 +1,6 @@
+# Every change needs the maintainer's review, and the release and signing
+# workflows above all.
+* @mrsafalpiya
+/.github/ @mrsafalpiya
+/keys/ @mrsafalpiya
+/catalog/ @mrsafalpiya

@@ -1,0 +1,28 @@
+{
+  "recipes": {
+    "rails": {
+      "detected": "config/application.rb exists and Gemfile declares rails",
+      "layer": {
+        "processes": {
+          "web": {
+            "command": "set -a; [ ! -f .env ] || . ./.env; set +a; exec bin/rails server -b 127.0.0.1 -p {port}",
+            "primary": true
+          }
+        },
+        "worktree": {
+          "on_create": [
+            "bundle install"
+          ]
+        }
+      },
+      "test_database_warnings": [
+        "the Gemfile doesn't load .env files (it has neither dotenv-rails nor dotenv), so the Project's tests don't read .env.test, where Laneway points them at the Worktree's Test Database; add gem \"dotenv-rails\" to the Gemfile's :development, :test group, or set database.test to off"
+      ],
+      "test_env": {
+        "file": ".env.test",
+        "layered": true
+      },
+      "export_env": true
+    }
+  }
+}

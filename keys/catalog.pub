@@ -1,0 +1,5 @@
+# PLACEHOLDER: this is NOT the Catalog's signing key, and nobody holds its
+# private key. Until a maintainer replaces it (see keys/README.md), CI can
+# verify no Catalog, and nothing is published. It is the same placeholder
+# Laneway builds in (placeholderKey in internal/catalog/fetch.go).
+TEFORVdBWS1QTEFDRUhPTERFUi1LRVktU0VFLSM3MSE=

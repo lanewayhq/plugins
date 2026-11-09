@@ -1,0 +1,4 @@
+# Built by `go run ./cmd/plugins build`; releases ship them, the repository doesn't.
+/plugins/*/plugin.wasm
+/dist/
+/.laneway/

@@ -1,0 +1,107 @@
+name: Release
+
+# A tag <plugin>/v<version>, such as laravel/v1.2.0, releases that Plugin:
+# after its tests pass against Laneway, its release (the archive Laneway
+# downloads, holding its manifest and built module, plus the manifest and
+# SHA256SUMS beside it) is published as the tag's GitHub release. Then the
+# Catalog is rebuilt from every release and proposed in a pull request, to
+# be signed offline by a maintainer (see docs/releasing.md).
+on:
+  push:
+    tags: ['*/v*']
+
+permissions:
+  contents: read
+
+env:
+  LANEWAY_REF: ${{ vars.LANEWAY_REF || 'main' }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      plugin: ${{ steps.tag.outputs.plugin }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the tag
+        id: tag
+        run: |
+          tag=$GITHUB_REF_NAME
+          plugin=${tag%%/v*}
+          version=${tag#*/v}
+          test -d "plugins/$plugin" || { echo "::error::$tag names no Plugin in plugins/"; exit 1; }
+          echo "plugin=$plugin" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Build lane
+        id: lane
+        uses: ./.github/actions/lane
+        with:
+          ssh-key: ${{ secrets.LANEWAY_DEPLOY_KEY }}
+          token: ${{ secrets.LANEWAY_REPO_TOKEN }}
+          ref: ${{ env.LANEWAY_REF }}
+      - name: lane plugin test
+        env:
+          LANE: ${{ steps.lane.outputs.lane }}
+        run: go run ./cmd/plugins test "${{ steps.tag.outputs.plugin }}"
+      - name: e2e tests against the Laneway build
+        env:
+          LANE: ${{ steps.lane.outputs.lane }}
+          LANEWAY_SRC: ${{ steps.lane.outputs.src }}
+        run: go test -tags e2e -count=1 ./e2e
+      - name: Pack the release
+        run: go run ./cmd/plugins pack -tag "$GITHUB_REF_NAME" -out dist "${{ steps.tag.outputs.plugin }}"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # --latest=false: "latest" is kept for the Catalog's own release,
+          # which Laneway fetches from releases/latest/download/catalog.json.
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --latest=false \
+            --title "${{ steps.tag.outputs.plugin }} ${{ steps.tag.outputs.version }}" \
+            --notes "Release archive, manifest and SHA256SUMS of the ${{ steps.tag.outputs.plugin }} Plugin ${{ steps.tag.outputs.version }}, tested against lanewayhq/laneway ${{ env.LANEWAY_REF }}. It reaches Laneway once the Catalog listing it is signed and published."
+
+  catalog:
+    needs: release
+    # One at a time, so each proposed Catalog lists every release before it.
+    concurrency: catalog-proposal
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Rebuild the Catalog from every release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/build-catalog.sh
+      - name: Propose it for signing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLUGIN: ${{ needs.release.outputs.plugin }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          if git diff --quiet -- catalog/catalog.json && git ls-files --error-unmatch catalog/catalog.json >/dev/null 2>&1; then
+            echo "The Catalog already lists $PLUGIN $VERSION."
+            exit 0
+          fi
+          branch="catalog/$PLUGIN-$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add catalog/catalog.json
+          git commit -m "chore: list $PLUGIN $VERSION in the Catalog"
+          git push --force origin "$branch"
+          gh pr create --base main --head "$branch" --title "Catalog: $PLUGIN $VERSION" --body "$(cat <<BODY
+          The Catalog, rebuilt from every Plugin release, now lists $PLUGIN $VERSION.
+
+          Review it: \`catalog/catalog.json\` must list exactly the releases (the **Catalog** check rebuilds it from them and fails otherwise). Then merge. The **Catalog** workflow's \`publish\` job waits for a maintainer's approval in the \`catalog-signing\` Environment, signs this Catalog, and publishes it to Laneway. See docs/releasing.md.
+          BODY
+          )"

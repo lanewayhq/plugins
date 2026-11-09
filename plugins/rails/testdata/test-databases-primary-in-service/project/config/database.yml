@@ -1,0 +1,11 @@
+development:
+  primary:
+    adapter: mysql2
+    database: shop_development
+test:
+  primary:
+    adapter: trilogy
+    database: shop_test
+  cache:
+    adapter: sqlite3
+    database: storage/test_cache.sqlite3
