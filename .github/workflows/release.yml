@@ -4,8 +4,9 @@ name: Release
 # after its tests pass against Laneway, its release (the archive Laneway
 # downloads, holding its manifest and built module, plus the manifest and
 # SHA256SUMS beside it) is published as the tag's GitHub release. Then the
-# Catalog is rebuilt from every release and proposed in a pull request, to
-# be signed offline by a maintainer (see docs/releasing.md).
+# Catalog is rebuilt from every release and proposed in a pull request.
+# Merging it starts the Catalog workflow, which signs and publishes the
+# Catalog once the maintainer approves it (see docs/releasing.md).
 on:
   push:
     tags: ['*/v*']

@@ -1,14 +1,16 @@
 name: Build lane
 description: >
-  Checks out lanewayhq/laneway (private: it needs a read-only deploy key or a
-  token that can read it) at a ref, sets up Go, and builds the lane binary.
+  Checks out lanewayhq/laneway at a ref, sets up Go, and builds the lane
+  binary. The repository is public, so the workflow's own token is enough,
+  including on pull requests from forks; a deploy key or token is only
+  needed if it ever goes private again.
 inputs:
   ssh-key:
-    description: A read-only deploy key of lanewayhq/laneway (the LANEWAY_DEPLOY_KEY secret). Used when set.
+    description: A read-only deploy key of lanewayhq/laneway (the LANEWAY_DEPLOY_KEY secret). Optional; used when set.
     required: false
     default: ''
   token:
-    description: A token that can read lanewayhq/laneway (the LANEWAY_REPO_TOKEN secret), used when no deploy key is set.
+    description: A token that can read lanewayhq/laneway (the LANEWAY_REPO_TOKEN secret). Optional; used when no deploy key is set, else the workflow's own token.
     required: false
     default: ''
   ref:
