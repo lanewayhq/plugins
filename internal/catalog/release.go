@@ -282,10 +282,9 @@ func Encode(c *Catalog) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-// PlaceholderKey is the public key keys/catalog.pub holds until a
-// maintainer replaces it with the real one: the same placeholder Laneway
-// builds in (placeholderKey in its internal/catalog/fetch.go). Nobody holds
-// its private key.
+// PlaceholderKey is the placeholder public key keys/catalog.pub and Laneway
+// held before the real Catalog key existed. Nobody holds its private key, so
+// it is refused rather than trusted.
 const PlaceholderKey = "TEFORVdBWS1QTEFDRUhPTERFUi1LRVktU0VFLSM3MSE="
 
 // ErrPlaceholderKey is returned for the placeholder public key.
