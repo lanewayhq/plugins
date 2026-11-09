@@ -1,0 +1,9 @@
+{
+  "name": "rustfs",
+  "version": "1.0.0",
+  "api_version": 1,
+  "engines": ["rustfs.toml"],
+  "dashboard": {
+    "links": [{"scope": "service", "label": "Console", "url": "https://rustfs.{dashboard_domain}/rustfs/console/"}]
+  }
+}
