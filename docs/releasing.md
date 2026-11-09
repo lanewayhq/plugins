@@ -49,7 +49,7 @@ The Catalog's format is Laneway's: `internal/catalog/catalog.go` here is a copy 
 
 ## Repository settings
 
-- **Secret `LANEWAY_REPO_TOKEN`**: a fine-grained token with read access to `lanewayhq/laneway`'s contents, so CI can check out and build `lane`.
-- **Variable `LANEWAY_REF`** (optional): the `lanewayhq/laneway` branch, tag or commit CI tests against. It defaults to `spec/48-plugin-system`; point it at `main` (or a release tag) once the Plugin system is merged. The CI workflow can also be run by hand against another ref.
+- **Secret `LANEWAY_DEPLOY_KEY`**: the private half of a read-only deploy key on `lanewayhq/laneway`, so CI can check out and build `lane`. (`LANEWAY_REPO_TOKEN`, a fine-grained token with read access to its contents, also works when no deploy key is set.)
+- **Variable `LANEWAY_REF`** (optional): the `lanewayhq/laneway` branch, tag or commit CI tests against. It defaults to `main`. The CI workflow can also be run by hand against another ref.
 - **Settings → Actions → General → Workflow permissions**: allow GitHub Actions to create pull requests, for the Catalog pull requests.
 - The Catalog and releases are downloaded by Laneway without credentials, so this repository's releases must be public before Laneway can fetch from it.

@@ -18,8 +18,8 @@ permissions:
 
 env:
   # The Laneway to test against: the workflow's input, else the repository
-  # variable LANEWAY_REF, else the Plugin system's integration branch.
-  LANEWAY_REF: ${{ inputs.laneway_ref || vars.LANEWAY_REF || 'spec/48-plugin-system' }}
+  # variable LANEWAY_REF, else Laneway's main branch.
+  LANEWAY_REF: ${{ inputs.laneway_ref || vars.LANEWAY_REF || 'main' }}
 
 jobs:
   test:
@@ -30,6 +30,7 @@ jobs:
         id: lane
         uses: ./.github/actions/lane
         with:
+          ssh-key: ${{ secrets.LANEWAY_DEPLOY_KEY }}
           token: ${{ secrets.LANEWAY_REPO_TOKEN }}
           ref: ${{ env.LANEWAY_REF }}
       - name: Vet and test the SDK and tools

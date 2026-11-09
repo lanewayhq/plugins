@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  LANEWAY_REF: ${{ vars.LANEWAY_REF || 'spec/48-plugin-system' }}
+  LANEWAY_REF: ${{ vars.LANEWAY_REF || 'main' }}
 
 jobs:
   release:
@@ -39,6 +39,7 @@ jobs:
         id: lane
         uses: ./.github/actions/lane
         with:
+          ssh-key: ${{ secrets.LANEWAY_DEPLOY_KEY }}
           token: ${{ secrets.LANEWAY_REPO_TOKEN }}
           ref: ${{ env.LANEWAY_REF }}
       - name: lane plugin test

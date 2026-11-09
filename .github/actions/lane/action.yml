@@ -1,11 +1,16 @@
 name: Build lane
 description: >
-  Checks out lanewayhq/laneway (private: it needs a token that can read it)
-  at a ref, sets up Go, and builds the lane binary.
+  Checks out lanewayhq/laneway (private: it needs a read-only deploy key or a
+  token that can read it) at a ref, sets up Go, and builds the lane binary.
 inputs:
+  ssh-key:
+    description: A read-only deploy key of lanewayhq/laneway (the LANEWAY_DEPLOY_KEY secret). Used when set.
+    required: false
+    default: ''
   token:
-    description: A token that can read lanewayhq/laneway (the LANEWAY_REPO_TOKEN secret).
-    required: true
+    description: A token that can read lanewayhq/laneway (the LANEWAY_REPO_TOKEN secret), used when no deploy key is set.
+    required: false
+    default: ''
   ref:
     description: The lanewayhq/laneway branch, tag or commit to build.
     required: true
@@ -24,7 +29,8 @@ runs:
       with:
         repository: lanewayhq/laneway
         ref: ${{ inputs.ref }}
-        token: ${{ inputs.token }}
+        ssh-key: ${{ inputs.ssh-key }}
+        token: ${{ inputs.token || github.token }}
         path: .laneway
     - uses: actions/setup-go@v5
       with:
