@@ -31,3 +31,7 @@ LANE=/path/to/lane LANEWAY_SRC=/path/to/laneway go test -tags e2e ./e2e
 ```
 
 [docs/releasing.md](docs/releasing.md) describes releases, the Catalog and signing.
+
+## License
+
+The SDK and every Plugin here are licensed under the [Apache License 2.0](LICENSE). Plugins you build with the SDK can use any license you like.
