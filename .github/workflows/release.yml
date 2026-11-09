@@ -69,6 +69,7 @@ jobs:
     concurrency: catalog-proposal
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     steps:
@@ -105,3 +106,8 @@ jobs:
           Review it: \`catalog/catalog.json\` must list exactly the releases (the **Catalog** check rebuilds it from them and fails otherwise). Then merge. The **Catalog** workflow's \`publish\` job waits for a maintainer's approval in the \`catalog-signing\` Environment, signs this Catalog, and publishes it to Laneway. See docs/releasing.md.
           BODY
           )"
+          # A pull request opened with the workflow's own token starts no
+          # workflows, so start its checks by hand: they report on the
+          # branch's head commit, which is the pull request's.
+          gh workflow run ci.yml --ref "$branch"
+          gh workflow run catalog.yml --ref "$branch"

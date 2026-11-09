@@ -23,6 +23,8 @@ Laneway             ──▶ fetches releases/latest/download/catalog.json (+ .
    git tag laravel/v1.2.0 && git push origin laravel/v1.2.0
    ```
 
+   Push tags one at a time: GitHub starts no workflows for a push of more than three tags. Releasing several Plugins at once opens several Catalog pull requests; each lists every release before it, so merge the newest and close the rest.
+
 The [Release workflow](../.github/workflows/release.yml) runs that Plugin's `lane plugin test` and the e2e tests against Laneway, refuses a tag that isn't the manifest's version, and publishes the tag's GitHub release with:
 
 - `<plugin>-<version>.tar.gz`: what Laneway downloads, a reproducible gzipped tar of the manifest, the built WASM module and any Engine manifests, at its top. Source and test cases stay here.
