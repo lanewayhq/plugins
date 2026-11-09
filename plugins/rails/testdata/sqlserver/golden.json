@@ -22,6 +22,7 @@
         "file": ".env.test",
         "layered": true
       },
+      "export_env": true,
       "warnings": [
         "config/database.yml uses the \"sqlserver\" adapter, which Laneway has no database for (it knows mysql2, postgis, postgresql, sqlite3 and trilogy), so the Project's database is left alone; set [database] in laneway.toml to use one of Laneway's"
       ]

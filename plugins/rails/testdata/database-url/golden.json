@@ -27,7 +27,8 @@
       "test_env": {
         "file": ".env.test",
         "layered": true
-      }
+      },
+      "export_env": true
     }
   }
 }
