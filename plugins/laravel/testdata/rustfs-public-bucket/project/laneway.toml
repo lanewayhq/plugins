@@ -1,0 +1,11 @@
+[services]
+rustfs = "1"
+
+# Production serves avatars from a second, public bucket: the app's
+# public_s3 disk reads AWS_PUBLIC_BUCKET and AWS_PUBLIC_URL.
+[buckets.public]
+public = true
+
+[env]
+AWS_PUBLIC_BUCKET = "{rustfs_bucket_public}"
+AWS_PUBLIC_URL = "{rustfs_endpoint}/{rustfs_bucket_public}"

@@ -1,0 +1,62 @@
+{
+  "recipes": {
+    "laravel": {
+      "detected": "artisan exists",
+      "layer": {
+        "processes": {
+          "queue": {
+            "command": "php artisan queue:work"
+          },
+          "web": {
+            "command": "PHP_INI_SCAN_DIR=$PHP_INI_SCAN_DIR:{php_ini_dir} PHP_CLI_SERVER_WORKERS=8 php artisan serve --host=127.0.0.1 --port={port} --no-reload",
+            "primary": true,
+            "static_dir": "public"
+          }
+        },
+        "env": {
+          "APP_URL": "{url}",
+          "AWS_ACCESS_KEY_ID": "{rustfs_username}",
+          "AWS_BUCKET": "{rustfs_bucket}",
+          "AWS_DEFAULT_REGION": "us-east-1",
+          "AWS_ENDPOINT": "{rustfs_endpoint}",
+          "AWS_SECRET_ACCESS_KEY": "{rustfs_password}",
+          "AWS_URL": "{rustfs_endpoint}/{rustfs_bucket}",
+          "AWS_USE_PATH_STYLE_ENDPOINT": "true",
+          "DB_CONNECTION": "mysql",
+          "DB_DATABASE": "{db}",
+          "DB_HOST": "{db_host}",
+          "DB_PASSWORD": "{db_password}",
+          "DB_PORT": "{db_port}",
+          "DB_USERNAME": "{db_username}",
+          "MAIL_HOST": "{mailpit_host}",
+          "MAIL_MAILER": "smtp",
+          "MAIL_PORT": "{mailpit_port}"
+        },
+        "linked_env": {
+          "CACHE_PREFIX": "{project}_{worktree}_",
+          "REDIS_PREFIX": "{project}_{worktree}_"
+        },
+        "services": {
+          "mailpit": ""
+        },
+        "worktree": {
+          "on_create": [
+            "composer install",
+            "grep -Eq \"^APP_KEY=[\\\"']?[^\\\"'[:space:]#]\" .env || php artisan key:generate",
+            "php artisan storage:link"
+          ]
+        },
+        "database": {
+          "engine": "mysql"
+        }
+      },
+      "test_env": {
+        "file": ".env.testing",
+        "layered": false
+      },
+      "warnings": [
+        "composer.json doesn't require league/flysystem-aws-s3-v3, which Laravel's s3 disk needs to use the rustfs Service the Project declares, so Storage::disk('s3') fails; add it with `composer require league/flysystem-aws-s3-v3 \"^3.0\"`"
+      ]
+    }
+  }
+}

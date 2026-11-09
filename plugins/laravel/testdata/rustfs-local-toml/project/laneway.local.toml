@@ -1,0 +1,3 @@
+# This developer tries RustFS before the team does.
+[services]
+rustfs = "1"

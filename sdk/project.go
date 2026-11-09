@@ -1,11 +1,13 @@
 package sdk
 
 import (
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/lanewayhq/plugins/internal/detect"
 	"github.com/lanewayhq/plugins/internal/dotenv"
 )
@@ -38,6 +40,29 @@ func (p Project) Packages() map[string]bool { return detect.Packages(p.Dir) }
 
 // ComposerPackages are the packages the Project's composer.json requires.
 func (p Project) ComposerPackages() map[string]bool { return detect.ComposerPackages(p.Dir) }
+
+// Services are the Services the Project's own config declares in its
+// [services] table, keyed by Engine, each with its version:
+// laneway.toml's, then laneway.local.toml's, which wins. They don't include
+// those a Recipe or Integration adds. A file that isn't valid config
+// declares none here: Laneway says what's wrong with it.
+func (p Project) Services() map[string]string {
+	services := map[string]string{}
+	for _, name := range []string{"laneway.toml", "laneway.local.toml"} {
+		data, err := p.ReadFile(name)
+		if err != nil {
+			continue
+		}
+		var config struct {
+			Services map[string]string `toml:"services"`
+		}
+		if _, err := toml.Decode(string(data), &config); err != nil {
+			continue
+		}
+		maps.Copy(services, config.Services)
+	}
+	return services
+}
 
 // Rel is file relative to the Project, with forward slashes, and whether it
 // is inside the Project: file may be relative to the Project, or absolute on

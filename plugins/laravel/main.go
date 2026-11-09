@@ -2,7 +2,8 @@
 // Recipe, for a Project with an artisan file. Its answer comes from the
 // Project's files: the database, Services and queue worker from .env (or
 // .env.example before there is one), the Node package manager from the
-// lockfile, and the Test Database from .env.testing and phpunit.xml.
+// lockfile, the Test Database from .env.testing and phpunit.xml, and the
+// s3 disk from whether the Project's config declares RustFS.
 package main
 
 import (
@@ -42,6 +43,7 @@ func recipe(p sdk.Project) (sdk.RecipeResult, error) {
 	res := sdk.RecipeResult{TestEnv: &sdk.TestEnv{File: testEnvFile}}
 	res.Warnings = database(&l, p, env)
 	services(&l, env)
+	res.Warnings = append(res.Warnings, objectStorage(&l, p)...)
 	l.Worktree = &sdk.Worktree{OnCreate: setup(p)}
 	// Every Worktree but the main one gets its own Redis keys and cache
 	// entries, so its queue worker never runs another Worktree's jobs. The
@@ -100,6 +102,35 @@ func services(l *sdk.Layer, env laravelEnv) {
 	l.Env["MAIL_HOST"] = "{mailpit_host}"
 	l.Env["MAIL_PORT"] = "{mailpit_port}"
 }
+
+// objectStorage points Laravel's stock s3 disk at the Worktree's Bucket in
+// RustFS when the Project declares RustFS: it's opt-in, so a Project that
+// doesn't keeps its AWS_ settings, such as real AWS ones. It leaves
+// FILESYSTEM_DISK alone, so whether the app uses the s3 disk stays the
+// Project's choice, and Buckets the Project declares in laneway.toml, which
+// it wires into its own env. It returns a warning when composer.json lacks
+// the package the s3 disk needs.
+func objectStorage(l *sdk.Layer, p sdk.Project) []string {
+	if _, ok := p.Services()["rustfs"]; !ok {
+		return nil
+	}
+	l.Env["AWS_ACCESS_KEY_ID"] = "{rustfs_username}"
+	l.Env["AWS_SECRET_ACCESS_KEY"] = "{rustfs_password}"
+	l.Env["AWS_DEFAULT_REGION"] = "us-east-1"
+	l.Env["AWS_BUCKET"] = "{rustfs_bucket}"
+	l.Env["AWS_ENDPOINT"] = "{rustfs_endpoint}"
+	l.Env["AWS_URL"] = "{rustfs_endpoint}/{rustfs_bucket}"
+	l.Env["AWS_USE_PATH_STYLE_ENDPOINT"] = "true"
+	if p.ComposerPackages()[s3Package] {
+		return nil
+	}
+	return []string{fmt.Sprintf("composer.json doesn't require %s, which Laravel's s3 disk needs to use "+
+		"the rustfs Service the Project declares, so Storage::disk('s3') fails; "+
+		"add it with `composer require %s \"^3.0\"`", s3Package, s3Package)}
+}
+
+// s3Package is the Flysystem adapter Laravel's s3 disk needs.
+const s3Package = "league/flysystem-aws-s3-v3"
 
 // connections maps the Laravel DB_CONNECTION values Laneway has a database
 // engine for to that engine, and whether it is a file in each Worktree
