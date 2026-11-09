@@ -130,7 +130,7 @@ A Project has at most one Recipe, its stack, and any number of Integrations, too
 - A Recipe also says whether the Project's tests use a Test Database (`TestDatabase`, with `TestDatabaseWarnings` naming files that bypass it) and which env file its tests read (`TestEnv`).
 - Warnings (`Warnings`) tell the developer about problems that don't stop the Project running. Name the file at fault.
 
-Read the Project with `sdk.Project`: `ReadFile` and `Exists` for its files, `EnvFile()` for its `.env` (or `.env.example` before there is one), and `Gems()`, `Packages()` and `ComposerPackages()` for its dependencies. The directory is read-only. A Worktree other than the main one also sees the main Worktree, read-only, at `MainDir`, for files it copies from there.
+Read the Project with `sdk.Project`: `ReadFile` and `Exists` for its files, `EnvFile()` for its `.env` (or `.env.example` before there is one), `Gems()`, `Packages()` and `ComposerPackages()` for its dependencies, and `Services()` for the Services its own `laneway.toml` and `laneway.local.toml` declare, such as to wire a Service the Project opts into (the Laravel Recipe sets the `AWS_*` keys only when the Project declares `rustfs`). The directory is read-only. A Worktree other than the main one also sees the main Worktree, read-only, at `MainDir`, for files it copies from there.
 
 ## Engines
 
