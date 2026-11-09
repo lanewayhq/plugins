@@ -16,7 +16,7 @@ First-party Plugins for [Laneway](https://github.com/lanewayhq/laneway), the Go 
 - `sdk/`: the Go SDK, `github.com/lanewayhq/plugins/sdk`. [docs/authoring.md](docs/authoring.md) is the guide to writing a Plugin.
 - `plugins/<name>/`: each Plugin: its `plugin.json`, its source or Engine manifests, and its `lane plugin test` cases under `testdata/`.
 - `cmd/plugins/`: builds, tests and packs the Plugins, and builds, signs and verifies the Catalog.
-- `catalog/`: the Catalog and its signature, once there is one. `keys/catalog.pub` is the public half of the key it is signed with (see [keys/README.md](keys/README.md)).
+- `keys/catalog.pub`: the public half of the key the Catalog is signed with (see [keys/README.md](keys/README.md)). The signed Catalog itself isn't committed: it is published as this repository's latest release, `catalog/<timestamp>`.
 - `e2e/`: tests that drive a real Laneway build with each Plugin's release.
 
 ## Working on a Plugin

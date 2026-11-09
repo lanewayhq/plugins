@@ -2,3 +2,5 @@
 /plugins/*/plugin.wasm
 /dist/
 /.laneway/
+# Built by scripts/build-catalog.sh; the signed Catalog is published as a release, not committed.
+/catalog/

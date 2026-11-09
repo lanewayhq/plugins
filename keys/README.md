@@ -24,4 +24,8 @@ CI signs after you approve; see [docs/releasing.md](../docs/releasing.md#signing
 
 ## Replacing the key
 
-A new key needs a Laneway release that builds it in, and Laneways built before then refuse Catalogs signed with it. Generate the new pair as above, ship it in Laneway first, then replace `catalog.pub` here and sign the Catalog with the new key.
+A new key needs a Laneway release that builds it in, and Laneways built before then refuse Catalogs signed with it. Generate the new pair as above, ship it in Laneway first, then replace `catalog.pub` here and sign the Catalog with the new key: once that's merged, run the Catalog workflow by hand on `main` and approve it. `force` makes it publish although the releases it lists haven't changed:
+
+```sh
+gh workflow run catalog.yml -R lanewayhq/plugins --ref main -f force=true -f reason="a new signing key"
+```

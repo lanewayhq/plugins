@@ -4,9 +4,9 @@ name: Release
 # after its tests pass against Laneway, its release (the archive Laneway
 # downloads, holding its manifest and built module, plus the manifest and
 # SHA256SUMS beside it) is published as the tag's GitHub release. Then the
-# Catalog is rebuilt from every release and proposed in a pull request.
-# Merging it starts the Catalog workflow, which signs and publishes the
-# Catalog once the maintainer approves it (see docs/releasing.md).
+# Catalog workflow rebuilds the Catalog from every release, and signs and
+# publishes it once the maintainer approves it (see docs/releasing.md).
+# Only a tag on a commit that is on main is released.
 on:
   push:
     tags: ['*/v*']
@@ -27,6 +27,14 @@ jobs:
       version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse a tag that isn't on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) isn't on main: tag a commit that was merged through a pull request."
+            exit 1
+          fi
       - name: Read the tag
         id: tag
         run: |
@@ -66,49 +74,10 @@ jobs:
 
   catalog:
     needs: release
-    # One at a time, so each proposed Catalog lists every release before it.
-    concurrency: catalog-proposal
-    runs-on: ubuntu-latest
+    # Waits for the maintainer's approval in the catalog-signing Environment,
+    # then signs and publishes the Catalog, listing this release.
+    uses: ./.github/workflows/catalog.yml
     permissions:
-      actions: write
       contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Rebuild the Catalog from every release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: scripts/build-catalog.sh
-      - name: Propose it for signing
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PLUGIN: ${{ needs.release.outputs.plugin }}
-          VERSION: ${{ needs.release.outputs.version }}
-        run: |
-          if git diff --quiet -- catalog/catalog.json && git ls-files --error-unmatch catalog/catalog.json >/dev/null 2>&1; then
-            echo "The Catalog already lists $PLUGIN $VERSION."
-            exit 0
-          fi
-          branch="catalog/$PLUGIN-$VERSION"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git add catalog/catalog.json
-          git commit -m "chore: list $PLUGIN $VERSION in the Catalog"
-          git push --force origin "$branch"
-          gh pr create --base main --head "$branch" --title "Catalog: $PLUGIN $VERSION" --body "$(cat <<BODY
-          The Catalog, rebuilt from every Plugin release, now lists $PLUGIN $VERSION.
-
-          Review it: \`catalog/catalog.json\` must list exactly the releases (the **Catalog** check rebuilds it from them and fails otherwise). Then merge. The **Catalog** workflow's \`publish\` job waits for a maintainer's approval in the \`catalog-signing\` Environment, signs this Catalog, and publishes it to Laneway. See docs/releasing.md.
-          BODY
-          )"
-          # A pull request opened with the workflow's own token starts no
-          # workflows, so start its checks by hand: they report on the
-          # branch's head commit, which is the pull request's.
-          gh workflow run ci.yml --ref "$branch"
-          gh workflow run catalog.yml --ref "$branch"
+    with:
+      reason: ${{ needs.release.outputs.plugin }} ${{ needs.release.outputs.version }}
