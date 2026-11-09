@@ -1,0 +1,15 @@
+{
+  "integrations": {
+    "vite": {
+      "detected": "package.json depends on vite",
+      "layer": {
+        "processes": {
+          "vite": {
+            "command": "rm -f public/hot; LARAVEL_BYPASS_ENV_CHECK=1 node_modules/.bin/vite --config {vite_config} --host 127.0.0.1 --port {port} --strictPort",
+            "http": true
+          }
+        }
+      }
+    }
+  }
+}

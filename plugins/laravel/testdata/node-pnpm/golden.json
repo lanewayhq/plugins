@@ -1,0 +1,50 @@
+{
+  "recipes": {
+    "laravel": {
+      "detected": "artisan exists",
+      "layer": {
+        "processes": {
+          "queue": {
+            "command": "php artisan queue:work"
+          },
+          "web": {
+            "command": "PHP_INI_SCAN_DIR=$PHP_INI_SCAN_DIR:{php_ini_dir} PHP_CLI_SERVER_WORKERS=8 php artisan serve --host=127.0.0.1 --port={port} --no-reload",
+            "primary": true,
+            "static_dir": "public"
+          }
+        },
+        "env": {
+          "APP_URL": "{url}",
+          "DB_CONNECTION": "sqlite",
+          "DB_DATABASE": "{db}",
+          "MAIL_HOST": "{mailpit_host}",
+          "MAIL_MAILER": "smtp",
+          "MAIL_PORT": "{mailpit_port}"
+        },
+        "linked_env": {
+          "CACHE_PREFIX": "{project}_{worktree}_",
+          "REDIS_PREFIX": "{project}_{worktree}_"
+        },
+        "services": {
+          "mailpit": ""
+        },
+        "worktree": {
+          "on_create": [
+            "composer install",
+            "grep -Eq \"^APP_KEY=[\\\"']?[^\\\"'[:space:]#]\" .env || php artisan key:generate",
+            "pnpm install",
+            "php artisan storage:link"
+          ]
+        },
+        "database": {
+          "engine": "sqlite",
+          "path": "database/database.sqlite"
+        }
+      },
+      "test_env": {
+        "file": ".env.testing",
+        "layered": false
+      }
+    }
+  }
+}

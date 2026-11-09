@@ -1,0 +1,43 @@
+{
+  "generators": {
+    "t3": {
+      "effects": [
+        {
+          "kind": "file",
+          "file": {
+            "path": "t3.json",
+            "json": {
+              "new": {
+                "$schema": "https://t3.codes/schema/t3.json"
+              },
+              "entries": [
+                {
+                  "at": [
+                    "scripts"
+                  ],
+                  "match": {
+                    "name": "Laneway: wait until Ready"
+                  },
+                  "value": {
+                    "name": "Laneway: wait until Ready",
+                    "command": "sh -c 'command -v lane \u003e/dev/null 2\u003e\u00261 || exit 0; lane worktree ready || [ $? -eq 3 ]'",
+                    "icon": "configure",
+                    "runOnWorktreeCreate": true,
+                    "async": false
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "kind": "file",
+          "file": {
+            "path": "AGENTS.md",
+            "markdown": "## Local environment (Laneway)\n\nThis repository is served by Laneway when it's installed. Every git worktree gets its own HTTPS URL, database and `.env`, so work only with this worktree's.\n\n- Find this worktree's URL, its Processes and their states, its databases and its Service connection details with `lane info --json`. Use that URL rather than starting your own server or guessing a port.\n- Run the project's commands (tests, artisan, composer, npm…) with `lane exec \u003ccommand\u003e`, such as `lane exec php artisan test`, so they use this worktree's PHP and Node versions.\n- `lane worktree ready` waits until this worktree is Ready (Laneway prepares each new worktree: its database, `.env` and setup commands). If it reports that preparing it failed, show the user its output; `lane worktree ready --retry` prepares it again once the problem is fixed.\n- Name a linked worktree after your task: if `worktree.main` in `lane info --json` is false and its `aliases` is empty, then once you know your task and `lane worktree ready` has finished, run `lane worktree alias \u003cname\u003e` with a short kebab-case name for the task (lowercase letters, digits and `-`, such as `checkout-redesign`). If the name is taken, pick another. The Alias becomes this worktree's URL, so from then on use the `url` that `lane info --json` reports. Never add an Alias in the main worktree.\n- If there is no `lane` command, Laneway isn't installed: ignore this section.\n"
+          }
+        }
+      ]
+    }
+  }
+}
