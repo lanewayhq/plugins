@@ -2,8 +2,8 @@
 # Rebuilds the Catalog, catalog/catalog.json (or the file given as -o), from
 # the Plugin releases: those in a directory, or else every release on GitHub
 # (see fetch-releases.sh), listed at $BASE_URL (GitHub's release downloads
-# by default). The Catalog it writes is unsigned: sign it with
-# sign-catalog.sh, offline.
+# by default). The Catalog it writes is unsigned: the Catalog workflow
+# signs it in CI, or sign-catalog.sh by hand.
 #
 #	scripts/build-catalog.sh [-o file] [releases-dir]
 set -eu

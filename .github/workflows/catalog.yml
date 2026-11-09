@@ -1,47 +1,46 @@
 name: Catalog
 
-# The Catalog is signed in CI, but only after a maintainer approves it: the
-# private key is a secret of the `catalog-signing` Environment, which only
-# runs on main and needs a required reviewer's approval for every run.
+# Signs the Catalog and publishes it as the latest release, where Laneway
+# fetches it: releases/latest/download/catalog.json (+ .sig).
 #
-# - On a pull request (the "Catalog: <plugin> <version>" ones the Release
-#   workflow opens), `verify` checks that catalog/catalog.json is exactly
-#   what the Plugin releases build to, so review shows what will be signed.
-# - On main, `publish` waits for approval, then rebuilds the Catalog from
-#   the releases again, refuses to sign anything else, signs it, checks the
-#   signature against keys/catalog.pub (as Laneway does), and publishes
-#   catalog.json and catalog.json.sig as the latest release, where Laneway
-#   fetches them: releases/latest/download/catalog.json.
+# The Release workflow calls this after each Plugin release, so pushing a
+# tag <plugin>/v<version> ends here. It can also be run by hand on main, to
+# publish again after a run was rejected or after replacing the key.
+#
+# The private key is a secret of the `catalog-signing` Environment, which
+# only main and <plugin>/v<version> tags may use, and which waits for the
+# maintainer's approval on every run: that approval is the one step between
+# a tag and every Laneway machine, so no run signs without it. Once
+# approved, the job rebuilds the Catalog from every Plugin release on
+# GitHub, so it lists every release published by then, whichever run is
+# approved; a run that finds the published Catalog already up to date
+# publishes nothing, unless it is run by hand with `force`.
 on:
-  pull_request:
-    paths: ['catalog/**', 'keys/**', 'internal/catalog/**', 'cmd/plugins/**', 'scripts/**']
-  push:
-    branches: [main]
-    paths: ['catalog/**', 'keys/**']
+  workflow_call:
+    inputs:
+      reason:
+        description: What this Catalog adds, such as "mysql 1.0.1", for its release notes
+        type: string
+        required: false
   workflow_dispatch:
+    inputs:
+      reason:
+        description: Why the Catalog is published again, for its release notes
+        required: false
+      force:
+        description: Publish even if the published Catalog lists the same releases, such as after replacing the key
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Check that the Catalog is what the releases build to
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: scripts/check-catalog.sh
-
   publish:
-    needs: verify
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     # Holds the signing key. Its protection rules make this job wait for a
-    # required reviewer's approval, and only on main.
+    # required reviewer's approval, and only on main or a release tag.
     environment: catalog-signing
+    # One at a time, so each publish starts from the one before it.
     concurrency: catalog-publish
     runs-on: ubuntu-latest
     permissions:
@@ -51,29 +50,48 @@ jobs:
       # GitHub's own actions, pinned to exact commits.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Refuse a commit that isn't on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) isn't on main; only reviewed code signs the Catalog."
+            exit 1
+          fi
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: false
+      # Everything that downloads runs before the key is written.
+      - name: Build the Catalog from every Plugin release
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          go build -o "$RUNNER_TEMP/plugins" ./cmd/plugins
+          export PLUGINS="$RUNNER_TEMP/plugins"
+          scripts/build-catalog.sh
+          published="$RUNNER_TEMP/published"
+          if [ "$FORCE" != true ] && gh release download --repo "$GITHUB_REPOSITORY" --pattern catalog.json --dir "$published" 2>/dev/null &&
+            cmp -s "$published/catalog.json" catalog/catalog.json; then
+            echo "The published Catalog already lists every release; nothing to publish."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Sign the Catalog and publish it as the latest release
+        if: steps.build.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           CATALOG_SIGNING_KEY: ${{ secrets.CATALOG_SIGNING_KEY }}
+          REASON: ${{ inputs.reason }}
         run: |
-          if [ ! -f catalog/catalog.json ]; then
-            echo "There is no Catalog yet; nothing to publish."
-            exit 0
-          fi
           if [ -z "$CATALOG_SIGNING_KEY" ]; then
             echo "The catalog-signing Environment has no CATALOG_SIGNING_KEY secret; see keys/README.md." >&2
             exit 1
           fi
-          go build -o "$RUNNER_TEMP/plugins" ./cmd/plugins
-          export PLUGINS="$RUNNER_TEMP/plugins"
-          # Sign only what the releases build to; everything that downloads
-          # runs before the key is written.
-          scripts/check-catalog.sh
+          PLUGINS="$RUNNER_TEMP/plugins"
           key="$RUNNER_TEMP/catalog.key"
           trap 'rm -f "$key"' EXIT
           (umask 077 && printf '%s\n' "$CATALOG_SIGNING_KEY" > "$key")
@@ -81,6 +99,13 @@ jobs:
           rm -f "$key"
           "$PLUGINS" verify -pub keys/catalog.pub catalog/catalog.json
           tag="catalog/$(date -u +%Y%m%d%H%M%S)"
-          gh release create "$tag" catalog/catalog.json catalog/catalog.json.sig --target "$GITHUB_SHA" --latest \
-            --title "Catalog $(date -u +%Y-%m-%d)" \
-            --notes "The signed Catalog of first-party Plugins, as of $GITHUB_SHA. Laneway fetches it from releases/latest/download/catalog.json."
+          {
+            if [ -n "$REASON" ]; then
+              printf 'Adds %s.\n\n' "$REASON"
+            fi
+            printf 'The signed Catalog of first-party Plugins, built from every Plugin release, signed from %s (%s). Laneway fetches it from releases/latest/download/catalog.json.\n\n' "$GITHUB_REF_NAME" "$GITHUB_SHA"
+            printf 'It lists:\n\n'
+            jq -r '.plugins[] | "- \(.name): \([.releases[].version] | join(", "))"' catalog/catalog.json
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$tag" catalog/catalog.json catalog/catalog.json.sig --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --latest --title "Catalog $(date -u +%Y-%m-%d)" --notes-file "$RUNNER_TEMP/notes.md"

@@ -1,32 +1,23 @@
 #!/bin/sh
-# Signs the Catalog with its private key. Run it on the machine that holds
-# the key, offline from CI: CI never sees the key, only checks the
-# signature against keys/catalog.pub.
+# Signs the Catalog by hand, for when CI can't (the Catalog workflow signs
+# it in CI once the maintainer approves). Run it on the machine that holds
+# the private key.
 #
 #	scripts/sign-catalog.sh <private-key-file> [releases-dir]
 #
-# It first rebuilds the Catalog from the Plugin releases (those in
+# It rebuilds catalog/catalog.json from the Plugin releases (those in
 # releases-dir, or else every release on GitHub, which needs the GitHub
-# CLI) and refuses to sign catalog/catalog.json unless it is exactly that,
-# so what gets signed is what the releases are, whoever wrote the file. Then
-# it writes catalog/catalog.json.sig and checks it against the public key
-# ($CATALOG_PUB, keys/catalog.pub by default). Commit both files.
+# CLI), so what gets signed is what the releases are. Then it writes
+# catalog/catalog.json.sig, checks it against the public key ($CATALOG_PUB,
+# keys/catalog.pub by default), and prints how to publish the two files.
 set -eu
 cd "$(dirname "$0")/.."
 
 key=${1:?usage: scripts/sign-catalog.sh <private-key-file> [releases-dir]}
 pub=${CATALOG_PUB:-keys/catalog.pub}
-releases=${2:-}
 
-rebuilt=$(mktemp)
-trap 'rm -f "$rebuilt"' EXIT
-scripts/build-catalog.sh -o "$rebuilt" $releases >/dev/null
-if ! cmp -s "$rebuilt" catalog/catalog.json; then
-	echo "catalog/catalog.json isn't what the releases build to; not signing it. The difference:" >&2
-	diff -u catalog/catalog.json "$rebuilt" >&2 || true
-	echo "Run scripts/build-catalog.sh${releases:+ $releases}, review the change, and sign again." >&2
-	exit 1
-fi
+scripts/build-catalog.sh ${2:-}
 ${PLUGINS:-go run ./cmd/plugins} sign -key "$key" catalog/catalog.json
 ${PLUGINS:-go run ./cmd/plugins} verify -pub "$pub" catalog/catalog.json
-echo "Now commit catalog/catalog.json and catalog/catalog.json.sig."
+echo "Review catalog/catalog.json, then publish it as the latest release:"
+echo "  gh release create catalog/\$(date -u +%Y%m%d%H%M%S) catalog/catalog.json catalog/catalog.json.sig --latest --title \"Catalog \$(date -u +%Y-%m-%d)\""
