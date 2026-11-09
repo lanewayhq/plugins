@@ -1,10 +1,17 @@
 name: Catalog
 
-# CI never holds the Catalog's private key. It checks that the committed
-# Catalog is signed with the public key in keys/catalog.pub (as Laneway
-# checks it) and is exactly what the Plugin releases build to, and, on
-# main, publishes it as the latest release, where Laneway fetches it:
-# releases/latest/download/catalog.json and catalog.json.sig.
+# The Catalog is signed in CI, but only after a maintainer approves it: the
+# private key is a secret of the `catalog-signing` Environment, which only
+# runs on main and needs a required reviewer's approval for every run.
+#
+# - On a pull request (the "Catalog: <plugin> <version>" ones the Release
+#   workflow opens), `verify` checks that catalog/catalog.json is exactly
+#   what the Plugin releases build to, so review shows what will be signed.
+# - On main, `publish` waits for approval, then rebuilds the Catalog from
+#   the releases again, refuses to sign anything else, signs it, checks the
+#   signature against keys/catalog.pub (as Laneway does), and publishes
+#   catalog.json and catalog.json.sig as the latest release, where Laneway
+#   fetches them: releases/latest/download/catalog.json.
 on:
   pull_request:
     paths: ['catalog/**', 'keys/**', 'internal/catalog/**', 'cmd/plugins/**', 'scripts/**']
@@ -24,28 +31,55 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Check the Catalog's signature and that it is what the releases build to
+      - name: Check that the Catalog is what the releases build to
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/check-catalog.sh
 
   publish:
     needs: verify
-    concurrency: catalog-publish
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # Holds the signing key. Its protection rules make this job wait for a
+    # required reviewer's approval, and only on main.
+    environment: catalog-signing
+    concurrency: catalog-publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Publish the Catalog as the latest release
+      # The key is in this job, so it runs only this repository's code and
+      # GitHub's own actions, pinned to exact commits.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Sign the Catalog and publish it as the latest release
         env:
           GH_TOKEN: ${{ github.token }}
+          CATALOG_SIGNING_KEY: ${{ secrets.CATALOG_SIGNING_KEY }}
         run: |
           if [ ! -f catalog/catalog.json ]; then
             echo "There is no Catalog yet; nothing to publish."
             exit 0
           fi
+          if [ -z "$CATALOG_SIGNING_KEY" ]; then
+            echo "The catalog-signing Environment has no CATALOG_SIGNING_KEY secret; see keys/README.md." >&2
+            exit 1
+          fi
+          go build -o "$RUNNER_TEMP/plugins" ./cmd/plugins
+          export PLUGINS="$RUNNER_TEMP/plugins"
+          # Sign only what the releases build to; everything that downloads
+          # runs before the key is written.
+          scripts/check-catalog.sh
+          key="$RUNNER_TEMP/catalog.key"
+          trap 'rm -f "$key"' EXIT
+          (umask 077 && printf '%s\n' "$CATALOG_SIGNING_KEY" > "$key")
+          "$PLUGINS" sign -key "$key" catalog/catalog.json
+          rm -f "$key"
+          "$PLUGINS" verify -pub keys/catalog.pub catalog/catalog.json
           tag="catalog/$(date -u +%Y%m%d%H%M%S)"
           gh release create "$tag" catalog/catalog.json catalog/catalog.json.sig --target "$GITHUB_SHA" --latest \
             --title "Catalog $(date -u +%Y-%m-%d)" \

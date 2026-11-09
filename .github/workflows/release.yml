@@ -102,14 +102,6 @@ jobs:
           gh pr create --base main --head "$branch" --title "Catalog: $PLUGIN $VERSION" --body "$(cat <<BODY
           The Catalog, rebuilt from every Plugin release, now lists $PLUGIN $VERSION.
 
-          It isn't signed: the signing key is kept offline, so CI can't sign it, and the **Catalog** check fails until a maintainer does. On the machine with the key:
-
-          \`\`\`sh
-          git fetch origin && git switch $branch
-          scripts/sign-catalog.sh /path/to/catalog.key
-          git add catalog/catalog.json.sig && git commit -m "chore: sign the Catalog listing $PLUGIN $VERSION" && git push
-          \`\`\`
-
-          \`sign-catalog.sh\` rebuilds the Catalog from the releases itself and refuses to sign anything else. Once the check passes, merge: CI verifies the signature again and publishes the Catalog. See docs/releasing.md.
+          Review it: \`catalog/catalog.json\` must list exactly the releases (the **Catalog** check rebuilds it from them and fails otherwise). Then merge. The **Catalog** workflow's \`publish\` job waits for a maintainer's approval in the \`catalog-signing\` Environment, signs this Catalog, and publishes it to Laneway. See docs/releasing.md.
           BODY
           )"

@@ -27,6 +27,6 @@ if ! cmp -s "$rebuilt" catalog/catalog.json; then
 	echo "Run scripts/build-catalog.sh${releases:+ $releases}, review the change, and sign again." >&2
 	exit 1
 fi
-go run ./cmd/plugins sign -key "$key" catalog/catalog.json
-go run ./cmd/plugins verify -pub "$pub" catalog/catalog.json
+${PLUGINS:-go run ./cmd/plugins} sign -key "$key" catalog/catalog.json
+${PLUGINS:-go run ./cmd/plugins} verify -pub "$pub" catalog/catalog.json
 echo "Now commit catalog/catalog.json and catalog/catalog.json.sig."

@@ -20,4 +20,4 @@ if [ -z "$releases" ]; then
 	trap 'rm -rf "$releases"' EXIT
 	scripts/fetch-releases.sh "$releases"
 fi
-go run ./cmd/plugins catalog -releases "$releases" -o "$out" ${BASE_URL:+-base-url "$BASE_URL"}
+${PLUGINS:-go run ./cmd/plugins} catalog -releases "$releases" -o "$out" ${BASE_URL:+-base-url "$BASE_URL"}
