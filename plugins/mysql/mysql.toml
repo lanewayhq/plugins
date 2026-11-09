@@ -18,12 +18,18 @@ MYSQL_ROOT_PASSWORD = "{password}"
 MYSQL_USER = "{user}"
 MYSQL_PASSWORD = "{password}"
 
-# mysqladmin ping over TCP exits 0 once mysqld answers, even refusing the
-# login. The image's first start initialises the data directory with
-# networking off, so TCP fails until the real server listens.
+# mysqladmin ping exits 0 once mysqld answers, even refusing the login.
+# First over TCP: the image's first start initialises the data directory
+# with networking off, so TCP fails until the real server listens. Then
+# over the Unix socket, which every command below connects through: on a
+# slow start the real server can answer over TCP before its socket exists.
 [[ready]]
 kind = "command"
 command = ["mysqladmin", "ping", "--silent", "--protocol=tcp", "--host=127.0.0.1", "--port=3306"]
+
+[[ready]]
+kind = "command"
+command = ["mysqladmin", "ping", "--silent"]
 
 # Every command logs in as the shared user over the container's Unix socket,
 # with the password in MYSQL_PWD so the clients don't warn about a password
