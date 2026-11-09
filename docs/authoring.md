@@ -196,6 +196,29 @@ A Service Domain serves the Service of the Engine's default version if a Project
 - No Project or Worktree can be served at a Service Domain: they are under the Dashboard's Domain.
 - The first Service Domain's URL, such as `https://mail.laneway.localhost` (no trailing slash), is the Service variable `{<engine>_endpoint}`, which env templates may use like `{redis_host}`.
 
+### Buckets
+
+An object storage Engine, such as RustFS, declares `[bucket]`: the commands that give each Worktree its own **Bucket** in the Service. A Project that uses the Engine then gets a private Bucket in each Worktree, made while the Worktree is Preparing, and its name is the Service variable `{<engine>_bucket}`.
+
+```toml
+[bucket]
+exists = ["sh", "-c", '''…''', "sh", "{bucket}"]
+create = ["sh", "-c", '''…''', "sh", "{bucket}"]
+drop = ["sh", "-c", '''…''', "sh", "{bucket}"]
+list = ["sh", "-c", '''…''']
+```
+
+The commands follow the `[database]` contract: each runs in the container without a shell, and fails by exiting non-zero and saying why on stderr. `{bucket}` is a Bucket name Laneway made: lowercase letters, digits and `-`, 3 to 63 characters, safe in a URL or a shell script as it is. Pass it as an argument after the script, as above, rather than writing it into the script. Credentials are best read from the container's environment, so they never appear in a command's arguments.
+
+| Command | Must |
+| --- | --- |
+| `exists` | print the name if `{bucket}` exists and nothing if it doesn't; exit non-zero for any other answer, such as a refused login |
+| `create` | create `{bucket}`, empty and private; it only runs once `exists` said no |
+| `drop` | drop `{bucket}` with everything in it, and succeed when it doesn't exist |
+| `list` | print every Bucket in the Service, one per line |
+
+A Bucket is named after its Project and Worktree: `shop` for the main Worktree and `shop--feature-x` for the Worktree `feature-x`, cut short with a hash when too long. Every key of `[bucket]` is required, and an unknown one is an error. Write `{{` for a literal brace, such as curl's `-w '%{{http_code}}'`.
+
 ## Hooks and events
 
 A Plugin hooks lifecycle events by listing them under `hooks`. Its module gets a `hook` call for each, with the event (`sdk.Event`: the Project, and the Worktree, Process or Service it happened to), and returns effects.
