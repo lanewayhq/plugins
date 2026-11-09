@@ -7,7 +7,7 @@ First-party Plugins for [Laneway](https://github.com/lanewayhq/laneway), the Go 
 | [laravel](plugins/laravel) | the Laravel Recipe |
 | [rails](plugins/rails) | the Rails Recipe |
 | [vite](plugins/vite) | the Vite Integration |
-| [postgres](plugins/postgres), [mysql](plugins/mysql), [redis](plugins/redis), [mailpit](plugins/mailpit) | Engines (manifests only) |
+| [postgres](plugins/postgres), [mysql](plugins/mysql), [redis](plugins/redis), [mailpit](plugins/mailpit), [rustfs](plugins/rustfs) | Engines (manifests only) |
 | [claude](plugins/claude), [t3](plugins/t3) | the Claude Code and T3 Code Harness Generators |
 | [boost](plugins/boost) | the Laravel Boost Generator |
 

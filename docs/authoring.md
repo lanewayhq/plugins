@@ -211,6 +211,8 @@ list = ["sh", "-c", '''…''']
 size = ["sh", "-c", '''…''', "sh", "{bucket}"]
 ```
 
+[`plugins/rustfs/rustfs.toml`](../plugins/rustfs/rustfs.toml) is a complete one.
+
 The commands follow the `[database]` contract: each runs in the container without a shell, and fails by exiting non-zero and saying why on stderr. `{bucket}`, `{from}` and `{to}` are Bucket names Laneway made: lowercase letters, digits and `-`, 3 to 63 characters, safe in a URL or a shell script as they are. Pass them as arguments after the script, as above, rather than writing them into the script. Credentials are best read from the container's environment, so they never appear in a command's arguments.
 
 | Command | Must |
