@@ -30,7 +30,7 @@ lane plugin test --update plugins/laravel     # accept what a Plugin now returns
 LANE=/path/to/lane LANEWAY_SRC=/path/to/laneway go test -tags e2e ./e2e
 ```
 
-[docs/releasing.md](docs/releasing.md) describes releases, the Catalog and signing.
+[docs/releasing.md](docs/releasing.md) describes releases, the Catalog and signing, and [CONTRIBUTING.md](CONTRIBUTING.md) how to contribute.
 
 ## License
 
