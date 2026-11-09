@@ -139,7 +139,7 @@ An Engine is data: a TOML manifest listed under `engines`, with no module. It de
 ```toml
 name = "redis"            # lowercase letters, digits and _; config names it, and its Service variables start with it
 default_version = "7"     # the version that gets port; others get a derived port
-image = "docker.io/library/redis"
+image = "docker.io/library/redis"   # fully qualified; a Service at version 7 runs redis:7 (or see [versions] below)
 port = 6379               # its standard port, inside and outside the container
 data_dir = "/data"        # a named volume is mounted here
 command = ["redis-server", "--requirepass", "{password}", "--appendonly", "yes"]
@@ -160,6 +160,22 @@ Readiness probes are tried in order until each passes. Their `kind` is one of:
 `[database]` makes the Engine able to hold a Project's database: `max_name`, and `exists`, `create`, `clone`, `drop` and `list`, each a command run in the container without a shell (use `["sh", "-c", ...]` for more). Placeholders: `{user}`, `{password}` and `{version}` in what configures the container; `{db}`, `{from}` and `{to}` in the database commands; `{{` and `}}` for literal braces. A command fails by exiting non-zero and saying why on stderr.
 
 Engine names must be unique across the Plugins a developer has. A Dashboard link scoped to `service` shows on each Service of the Plugin's Engines, such as Mailpit's Inbox at `https://mail.{dashboard_domain}/`.
+
+### Versions mapped to images
+
+By default a Service's version is its image's tag: `redis = "7"` runs `docker.io/library/redis:7`. An image with no tag per major version, such as RustFS's (only `1.0.4`), or one you want pinned by digest, maps each version to an image reference in `[versions]` instead of setting `image`:
+
+```toml
+name = "rustfs"
+default_version = "1"
+
+[versions."1"]
+image = "docker.io/rustfs/rustfs:1.0.4"     # or "docker.io/rustfs/rustfs@sha256:…"
+```
+
+- Each `image` is fully qualified, with a tag or a `sha256` digest. `image` and `[versions]` can't both be set, and `image` is the only key in a version's table.
+- `default_version` must be one of the versions. A Project can only declare a version the Engine maps: any other is a config error naming the Engine and its versions.
+- A Service, its named volume and its port belong to its version, never its image. So releasing your Plugin with a version mapped to a new image, such as `1.0.5`, moves every Service at that version to it on `lane plugin update`: its container is stopped and created again from the new image, with the data in its volume and at the same port. Only map a version to images that can read each other's data, as patch releases normally can; give a release that can't a new version instead.
 
 ### Service Domains
 
