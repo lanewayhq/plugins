@@ -14,7 +14,7 @@ Thanks for helping. The full flow, for features, bug fixes, contributions and re
    ```
    Add or update the Plugin's `lane plugin test` cases under `plugins/<name>/testdata/`. A bug fix starts with a case that fails without it.
 4. **Follow the conventions:** commit messages like `fix: <what is now true, as a sentence>` (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`), and the words Laneway's [GLOSSARY.md](https://github.com/lanewayhq/laneway/blob/main/GLOSSARY.md) defines.
-5. **Leave releases to the maintainer:** don't bump a Plugin's `version`, and don't touch `catalog/`, `keys/` or `.github/` unless the issue asks for it.
+5. **Leave releases to the maintainer:** don't bump a Plugin's `version`, and don't touch `keys/` or `.github/` unless the issue asks for it.
 6. **Open the pull request** against `main`, with `Fixes #N` and how you tested it. The maintainer approves the first CI run from a fork and reviews every change.
 
 **Your own Plugin doesn't need to be here.** This repository holds only the first-party Plugins listed in the Catalog. Publish yours in your own repository, under any license, and users add it with `lane plugin add github.com/<owner>/<repo>`. See the [authoring guide](docs/authoring.md).
