@@ -130,7 +130,7 @@ A Project has at most one Recipe, its stack, and any number of Integrations, too
 - A Recipe also says whether the Project's tests use a Test Database (`TestDatabase`, with `TestDatabaseWarnings` naming files that bypass it) and which env file its tests read (`TestEnv`).
 - Warnings (`Warnings`) tell the developer about problems that don't stop the Project running. Name the file at fault.
 
-Read the Project with `sdk.Project`: `ReadFile` and `Exists` for its files, `EnvFile()` for its `.env` (or `.env.example` before there is one), and `Gems()`, `Packages()` and `ComposerPackages()` for its dependencies. The directory is read-only. A Worktree other than the main one also sees the main Worktree, read-only, at `MainDir`, for files it copies from there.
+Read the Project with `sdk.Project`: `ReadFile` and `Exists` for its files, `EnvFile()` for its `.env` (or `.env.example` before there is one), `Gems()`, `Packages()` and `ComposerPackages()` for its dependencies, and `Services()` for the Services its own `laneway.toml` and `laneway.local.toml` declare, such as to wire a Service the Project opts into (the Laravel Recipe sets the `AWS_*` keys only when the Project declares `rustfs`). The directory is read-only. A Worktree other than the main one also sees the main Worktree, read-only, at `MainDir`, for files it copies from there.
 
 ## Engines
 
@@ -139,7 +139,7 @@ An Engine is data: a TOML manifest listed under `engines`, with no module. It de
 ```toml
 name = "redis"            # lowercase letters, digits and _; config names it, and its Service variables start with it
 default_version = "7"     # the version that gets port; others get a derived port
-image = "docker.io/library/redis"
+image = "docker.io/library/redis"   # fully qualified; a Service at version 7 runs redis:7 (or see [versions] below)
 port = 6379               # its standard port, inside and outside the container
 data_dir = "/data"        # a named volume is mounted here
 command = ["redis-server", "--requirepass", "{password}", "--appendonly", "yes"]
@@ -159,7 +159,91 @@ Readiness probes are tried in order until each passes. Their `kind` is one of:
 
 `[database]` makes the Engine able to hold a Project's database: `max_name`, and `exists`, `create`, `clone`, `drop` and `list`, each a command run in the container without a shell (use `["sh", "-c", ...]` for more). Placeholders: `{user}`, `{password}` and `{version}` in what configures the container; `{db}`, `{from}` and `{to}` in the database commands; `{{` and `}}` for literal braces. A command fails by exiting non-zero and saying why on stderr.
 
-Engine names must be unique across the Plugins a developer has. A Dashboard link scoped to `service` shows on each Service of the Plugin's Engines, such as Mailpit's Inbox.
+Engine names must be unique across the Plugins a developer has. A Dashboard link scoped to `service` shows on each Service of the Plugin's Engines, such as Mailpit's Inbox at `https://mail.{dashboard_domain}/`.
+
+### Versions mapped to images
+
+By default a Service's version is its image's tag: `redis = "7"` runs `docker.io/library/redis:7`. An image with no tag per major version, such as RustFS's (only `1.0.4`), or one you want pinned by digest, maps each version to an image reference in `[versions]` instead of setting `image`:
+
+```toml
+name = "rustfs"
+default_version = "1"
+
+[versions."1"]
+image = "docker.io/rustfs/rustfs:1.0.4"     # or "docker.io/rustfs/rustfs@sha256:…"
+```
+
+- Each `image` is fully qualified, with a tag or a `sha256` digest. `image` and `[versions]` can't both be set, and `image` is the only key in a version's table.
+- `default_version` must be one of the versions. A Project can only declare a version the Engine maps: any other is a config error naming the Engine and its versions.
+- A Service, its named volume and its port belong to its version, never its image. So releasing your Plugin with a version mapped to a new image, such as `1.0.5`, moves every Service at that version to it on `lane plugin update`: its container is stopped and created again from the new image, with the data in its volume and at the same port. Only map a version to images that can read each other's data, as patch releases normally can; give a release that can't a new version instead.
+
+### Service Domains
+
+An Engine that serves browsers, such as Mailpit's inbox, declares **Service Domains**: Domains under the Dashboard's at which Laneway serves one of its container ports over HTTPS. Each is a `label` and the container `port` it forwards to, which must be `port` or `web_port` (a second port the container publishes, such as a web UI's). Mailpit's inbox is at `https://mail.laneway.localhost`:
+
+```toml
+port = 1025               # SMTP
+web_port = 8025           # the inbox
+
+[[domains]]
+label = "mail"            # served at mail.<Dashboard Domain>
+port = 8025
+```
+
+A Service Domain serves the Service of the Engine's default version if a Project uses it, otherwise the first one that is used. The first request starts the Service, and every request (a WebSocket for as long as it is open) keeps it from going Idle. When no Project uses the Engine, the Domain says what to declare.
+
+- A label is one lowercase Domain label (letters, digits and `-`), unique across the Engines a developer has: two Plugins declaring the same one can't both be added.
+- No Project or Worktree can be served at a Service Domain: they are under the Dashboard's Domain.
+- `{<engine>_endpoint}` is the URL of the **first** `[[domains]]` entry, in the order the manifest declares them, such as `https://mail.laneway.localhost` (no trailing slash). No key says which Domain it is: the order does. So an Engine with more than one declares first the Domain apps talk to, as RustFS declares `s3` (its S3 API) before `rustfs` (its console). Env templates may use it like `{redis_host}`.
+
+### Buckets
+
+An object storage Engine, such as RustFS, declares `[bucket]`: the commands that give each Worktree its own **Bucket** in the Service. A Project that uses the Engine then gets a private Bucket in each Worktree, made while the Worktree is Preparing, and its name is the Service variable `{<engine>_bucket}`. The main Worktree's starts empty; any other Worktree's starts as a copy of the main Worktree's, unless that holds more than `bucket_copy_limit` (1 GB by default), when it starts empty with a warning.
+
+```toml
+[bucket]
+exists = ["sh", "-c", '''…''', "sh", "{bucket}"]
+create = ["sh", "-c", '''…''', "sh", "{bucket}"]
+clone = ["sh", "-c", '''…''', "sh", "{from}", "{to}"]
+configure = ["sh", "-c", '''…''', "sh", "{bucket}", "{public}", "{origins}"]
+drop = ["sh", "-c", '''…''', "sh", "{bucket}"]
+list = ["sh", "-c", '''…''']
+size = ["sh", "-c", '''…''', "sh", "{bucket}"]
+```
+
+[`plugins/rustfs/rustfs.toml`](../plugins/rustfs/rustfs.toml) is a complete one.
+
+The commands follow the `[database]` contract: each runs in the container without a shell, and fails by exiting non-zero and saying why on stderr. `{bucket}`, `{from}` and `{to}` are Bucket names Laneway made: lowercase letters, digits and `-`, 3 to 63 characters, safe in a URL or a shell script as they are. Pass them as arguments after the script, as above, rather than writing them into the script. Credentials are best read from the container's environment, so they never appear in a command's arguments.
+
+| Command | Must |
+| --- | --- |
+| `exists` | print the name if `{bucket}` exists and nothing if it doesn't; exit non-zero for any other answer, such as a refused login. A copy `clone` left unfinished doesn't exist |
+| `create` | create `{bucket}`, empty and private; it only runs once `exists` said no |
+| `clone` | create `{to}` as a copy of every object in `{from}`, with its metadata; it only runs once `exists` said `{to}` doesn't exist, and must leave `{to}` complete or absent: if it fails, or never finishes, `exists` must not see `{to}` |
+| `configure` | set who may reach `{bucket}`: if `{public}` is `true`, anyone may read its objects without signing (a bucket policy allowing anonymous `s3:GetObject`); if `false`, no one may; and browsers may make requests to it (CORS) from exactly `{origins}`, or from nowhere if it is empty. Each run replaces what the last one set |
+| `drop` | drop `{bucket}` with everything in it, its policy and CORS too, and succeed when it doesn't exist |
+| `list` | print every Bucket in the Service, one per line |
+| `size` | print the total size of `{bucket}`'s objects in bytes, a decimal integer on a line of its own |
+
+`configure` runs after `create` or `clone` (so `clone` needn't copy a policy or CORS), every time the Worktree is prepared, whether its Bucket was made then or not, and again whenever the Worktree gains or loses an Alias. `{origins}` is one argument: the Worktree's Domain and its Aliases' as `https://` origins separated by spaces, such as `https://feature.shop.localhost https://checkout.shop.localhost`. Loop over it in the script (`for o in $origins`) rather than expecting one argument each. `{public}` is `true` or `false`; exit with status 2 on anything else. Public versus private is decided per Bucket, never per object: don't honour object ACLs.
+
+A Bucket is named after its Project and Worktree: `shop` for the main Worktree and `shop--feature-x` for the Worktree `feature-x`, cut short with a hash when too long. Every key of `[bucket]` is required, and an unknown one is an error. Write `{{` for a literal brace, such as curl's `-w '%{{http_code}}'`.
+
+#### Buckets a Project declares
+
+A Project may declare more Buckets than its private one, such as a public one for a production disk anyone can read from, in a `[buckets]` table in `laneway.toml` or `laneway.local.toml`:
+
+```toml
+[buckets.public]
+public = true             # anyone may read its objects; false (the default) for private
+
+[buckets.exports]         # private
+
+[env]
+PUBLIC_BUCKET = "{rustfs_bucket_public}"
+```
+
+Each Worktree then gets each declared Bucket in each object storage Service its Project uses, made, copied and configured like the private one: `shop-public` in the main Worktree and `shop-public--feature-x` in `feature-x`. Its name is the variable `{<engine>_bucket_<name>}`. A name is lowercase letters, digits and `_`, starting with a letter (`user_uploads` gives `shop-user-uploads`), and `public` is a Bucket's only key: anything else is an error. A removed Worktree's declared Buckets become Orphans like its private one. Your Engine's commands needn't know which Bucket is which: Laneway passes `{public}` to `configure`.
 
 ## Hooks and events
 
