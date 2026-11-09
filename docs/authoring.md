@@ -194,7 +194,7 @@ A Service Domain serves the Service of the Engine's default version if a Project
 
 - A label is one lowercase Domain label (letters, digits and `-`), unique across the Engines a developer has: two Plugins declaring the same one can't both be added.
 - No Project or Worktree can be served at a Service Domain: they are under the Dashboard's Domain.
-- The first Service Domain's URL, such as `https://mail.laneway.localhost` (no trailing slash), is the Service variable `{<engine>_endpoint}`, which env templates may use like `{redis_host}`.
+- `{<engine>_endpoint}` is the URL of the **first** `[[domains]]` entry, in the order the manifest declares them, such as `https://mail.laneway.localhost` (no trailing slash). No key says which Domain it is: the order does. So an Engine with more than one declares first the Domain apps talk to, as RustFS declares `s3` (its S3 API) before `rustfs` (its console). Env templates may use it like `{redis_host}`.
 
 ### Buckets
 

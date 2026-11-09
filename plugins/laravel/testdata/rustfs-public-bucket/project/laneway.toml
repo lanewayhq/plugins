@@ -1,3 +1,13 @@
+# Why this case's golden.json is the rustfs case's: a golden file shows only
+# the Recipe's layer, and the Recipe wires the s3 disk to the private Bucket
+# whatever Buckets the Project declares. The public Bucket below, and the
+# Project's own [env] keys using {rustfs_bucket_public}, are the Project's
+# layer, which Laneway puts over the Recipe's. This case pins that declaring
+# them changes nothing in the Recipe's answer (and warns about nothing); the
+# wiring itself, AWS_PUBLIC_BUCKET in each Worktree's .env, is covered by
+# Laneway's e2e test
+# TestALaravelAppDeclaringRustFSHasItsS3DiskPointedAtEachWorktreesBucket.
+
 [services]
 rustfs = "1"
 
