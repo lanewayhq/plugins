@@ -159,7 +159,26 @@ Readiness probes are tried in order until each passes. Their `kind` is one of:
 
 `[database]` makes the Engine able to hold a Project's database: `max_name`, and `exists`, `create`, `clone`, `drop` and `list`, each a command run in the container without a shell (use `["sh", "-c", ...]` for more). Placeholders: `{user}`, `{password}` and `{version}` in what configures the container; `{db}`, `{from}` and `{to}` in the database commands; `{{` and `}}` for literal braces. A command fails by exiting non-zero and saying why on stderr.
 
-Engine names must be unique across the Plugins a developer has. A Dashboard link scoped to `service` shows on each Service of the Plugin's Engines, such as Mailpit's Inbox.
+Engine names must be unique across the Plugins a developer has. A Dashboard link scoped to `service` shows on each Service of the Plugin's Engines, such as Mailpit's Inbox at `https://mail.{dashboard_domain}/`.
+
+### Service Domains
+
+An Engine that serves browsers, such as Mailpit's inbox, declares **Service Domains**: Domains under the Dashboard's at which Laneway serves one of its container ports over HTTPS. Each is a `label` and the container `port` it forwards to, which must be `port` or `web_port` (a second port the container publishes, such as a web UI's). Mailpit's inbox is at `https://mail.laneway.localhost`:
+
+```toml
+port = 1025               # SMTP
+web_port = 8025           # the inbox
+
+[[domains]]
+label = "mail"            # served at mail.<Dashboard Domain>
+port = 8025
+```
+
+A Service Domain serves the Service of the Engine's default version if a Project uses it, otherwise the first one that is used. The first request starts the Service, and every request (a WebSocket for as long as it is open) keeps it from going Idle. When no Project uses the Engine, the Domain says what to declare.
+
+- A label is one lowercase Domain label (letters, digits and `-`), unique across the Engines a developer has: two Plugins declaring the same one can't both be added.
+- No Project or Worktree can be served at a Service Domain: they are under the Dashboard's Domain.
+- The first Service Domain's URL, such as `https://mail.laneway.localhost` (no trailing slash), is the Service variable `{<engine>_endpoint}`, which env templates may use like `{redis_host}`.
 
 ## Hooks and events
 

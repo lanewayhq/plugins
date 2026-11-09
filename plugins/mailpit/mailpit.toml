@@ -1,5 +1,5 @@
 # Mailpit: an SMTP server that catches all mail, and an inbox to read it
-# (web_port, served at the mail Domain). It accepts any login or none, so
+# (web_port, served at the mail Service Domain). It accepts any login or none, so
 # apps can use the shared credentials or no credentials. Mail is kept in the
 # volume, so it survives Idle.
 name = "mailpit"
@@ -22,4 +22,9 @@ expect = "220"
 # ...and the inbox, so its first page doesn't fail while Mailpit starts.
 [[ready]]
 kind = "http"
+port = 8025
+
+# The inbox, served at https://mail.<Dashboard Domain>.
+[[domains]]
+label = "mail"
 port = 8025
