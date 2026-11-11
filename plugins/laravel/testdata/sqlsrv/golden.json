@@ -39,7 +39,7 @@
         "layered": false
       },
       "warnings": [
-        "DB_CONNECTION is \"sqlsrv\", which Laneway has no database for (it knows mysql, pgsql and sqlite), so the Project's DB_ settings are left alone; set [database] in laneway.toml to use one of Laneway's"
+        "DB_CONNECTION is \"sqlsrv\", which Laneway has no database for (it knows mariadb, mysql, pgsql and sqlite), so the Project's DB_ settings are left alone; set [database] in laneway.toml to use one of Laneway's"
       ]
     }
   }

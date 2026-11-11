@@ -1,0 +1,112 @@
+# MariaDB, at any image tag from 10.6 on: the version is the tag. Its
+# superuser is the shared user, with the shared password: the image creates
+# the user (MARIADB_USER) with rights to no database, so the container's
+# command adds a script that the image runs once, after creating the user on
+# the first start, granting it everything. root has the shared password too.
+#
+# Every command uses only the mariadb, mariadb-dump and mariadb-admin names,
+# which every image from 10.6 on has: images from 11.0 no longer have the
+# mysql ones.
+name = "mariadb"
+default_version = "11.8"
+image = "docker.io/library/mariadb"
+port = 3306
+data_dir = "/var/lib/mysql"
+user = "laneway"
+# The image's entrypoint runs a command that isn't mariadbd as is; this one
+# writes the script, then runs the entrypoint with mariadbd.
+command = ["sh", "-c", '''printf '%s\n' "GRANT ALL PRIVILEGES ON *.* TO '{user}'@'%' WITH GRANT OPTION;" > /docker-entrypoint-initdb.d/laneway.sql && exec docker-entrypoint.sh mariadbd''']
+
+# MARIADB_AUTO_UPGRADE: when the image is a newer minor or major release
+# than the one that last ran on the data directory (a floating tag such as
+# 11 moving from 11.4 to 11.8), the entrypoint backs up the system tables
+# and runs mariadb-upgrade before the server starts. A newer patch release
+# of the same series (10.6.27 to 10.6.28) needs no upgrade, so the
+# entrypoint skips it.
+[env]
+MARIADB_ROOT_PASSWORD = "{password}"
+MARIADB_USER = "{user}"
+MARIADB_PASSWORD = "{password}"
+MARIADB_AUTO_UPGRADE = "1"
+
+# mariadb-admin ping exits 0 once mariadbd answers, even refusing the
+# login. First over TCP: the image's first start initialises the data
+# directory, and an upgrade runs, with networking off, so TCP fails until
+# the real server listens. Then over the Unix socket, which every command
+# below connects through: on a slow start the real server can answer over
+# TCP before its socket exists.
+[[ready]]
+kind = "command"
+command = ["mariadb-admin", "ping", "--silent", "--protocol=tcp", "--host=127.0.0.1", "--port=3306"]
+
+[[ready]]
+kind = "command"
+command = ["mariadb-admin", "ping", "--silent"]
+
+# Every command logs in as the shared user over the container's Unix socket,
+# with the password in MYSQL_PWD, which MariaDB's clients read too, so they
+# don't warn about a password on their command line. mariadb prints rows as
+# --batch does, no headers.
+#
+# MariaDB can't create a database and its contents all at once, so clone
+# puts a table, laneway_copy_in_progress, in the database it is building and
+# drops it last: a database that still has it is a copy cut short (Laneway
+# was killed half way), which exists says isn't there, so create and clone
+# drop it first.
+[database]
+max_name = 64
+exists = ["env", "MYSQL_PWD={password}", "mariadb", "--user={user}", "--batch", "--skip-column-names",
+  "--execute=SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{db}' AND SCHEMA_NAME NOT IN (SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{db}' AND TABLE_NAME = 'laneway_copy_in_progress')"]
+# It runs only once exists has said {db} isn't there, so a database by that
+# name is a copy cut short.
+create = ["env", "MYSQL_PWD={password}", "mariadb", "--user={user}", "--batch", "--skip-column-names",
+  "--execute=DROP DATABASE IF EXISTS `{db}`; CREATE DATABASE `{db}`"]
+# Like Postgres's DROP DATABASE … WITH (FORCE), it first closes the other
+# connections using the database: one in the middle of a transaction on its
+# tables (a GUI client, say) would hold a metadata lock that makes DROP
+# DATABASE wait. One may have gone meanwhile (error 1094). DROP DATABASE
+# waits 30 seconds for a metadata lock rather than MariaDB's default of a
+# day.
+drop = ["env", "MYSQL_PWD={password}", "sh", "-c", '''
+user=$1 db=$2
+sql() { mariadb --user="$user" --batch --skip-column-names --execute="$1"; }
+ids=$(sql "SELECT ID FROM information_schema.PROCESSLIST WHERE DB = '$db' AND ID <> CONNECTION_ID()") || exit 1
+for id in $ids; do
+  err=$(sql "KILL CONNECTION $id" 2>&1) || case $err in
+    "ERROR 1094 "*) ;;
+    *) printf '%s\n' "$err" >&2; exit 1 ;;
+  esac
+done
+sql "SET SESSION lock_wait_timeout = 30; DROP DATABASE IF EXISTS \`$db\`"
+''', "sh", "{user}", "{db}"]
+list = ["env", "MYSQL_PWD={password}", "mariadb", "--user={user}", "--batch", "--skip-column-names",
+  "--execute=SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys') ORDER BY SCHEMA_NAME"]
+# A copy with from's character set and collation, made by mariadb-dump's
+# dump of from, read as one consistent snapshot without locking its tables
+# (so the main Worktree's app, queue worker or GUI client carry on), piped
+# straight into mariadb restoring it into to, so the dump never leaves the
+# container (and the sandbox line newer mariadb-dumps start with is read by
+# the client of the same release). It carries what mariadb-dump --routines
+# does: tables with their rows, routines, views and triggers. Events aren't
+# copied: they would run on the copy too. A write landing during the copy
+# may be in some tables and not others. pipefail makes a failed dump fail
+# the copy, not only a failed restore; a failed copy is dropped. It runs in
+# bash: the image's sh is dash, which has no pipefail.
+clone = ["env", "MYSQL_PWD={password}", "bash", "-c", '''
+set -o pipefail
+user=$1 from=$2 to=$3
+sql() { mariadb --user="$user" --batch --skip-column-names --execute="$1"; }
+charset=$(sql "SELECT CONCAT(DEFAULT_CHARACTER_SET_NAME, ' COLLATE ', DEFAULT_COLLATION_NAME) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$from'") || exit 1
+if [ -z "$charset" ]; then
+  printf "the database %s doesn't exist\n" "$from" >&2
+  exit 1
+fi
+sql "DROP DATABASE IF EXISTS \`$to\`; CREATE DATABASE \`$to\` CHARACTER SET $charset; CREATE TABLE \`$to\`.laneway_copy_in_progress (id int)" || exit 1
+if mariadb-dump --user="$user" --single-transaction --routines --triggers --skip-events --no-tablespaces "$from" |
+  mariadb --user="$user" --database="$to" &&
+  sql "DROP TABLE \`$to\`.laneway_copy_in_progress"; then
+  exit 0
+fi
+sql "DROP DATABASE IF EXISTS \`$to\`"
+exit 1
+''', "bash", "{user}", "{from}", "{to}"]
