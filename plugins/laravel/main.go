@@ -138,12 +138,17 @@ const s3Package = "league/flysystem-aws-s3-v3"
 var connections = map[string]struct {
 	engine string
 	file   bool
-}{"sqlite": {"sqlite", true}, "pgsql": {"postgres", false}, "mysql": {"mysql", false}}
+}{
+	"sqlite":  {"sqlite", true},
+	"pgsql":   {"postgres", false},
+	"mysql":   {"mysql", false},
+	"mariadb": {"mariadb", false},
+}
 
 // database gives the Project the database its DB_CONNECTION names: a
-// database in a database Service (Postgres, MySQL), or a SQLite file per
-// Worktree. It returns a warning for a connection Laneway has no database
-// for.
+// database in a database Service (Postgres, MySQL, MariaDB), or a SQLite
+// file per Worktree. It returns a warning for a connection Laneway has no
+// database for.
 func database(l *sdk.Layer, p sdk.Project, env laravelEnv) []string {
 	connection := env.setting("DB_CONNECTION", "sqlite")
 	c, ok := connections[connection]
