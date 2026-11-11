@@ -5,7 +5,7 @@
 # the first start, granting it everything. root has the shared password too.
 #
 # Every command uses only the mariadb, mariadb-dump and mariadb-admin names,
-# which every image from 10.5 has: images from 11.0 no longer have the
+# which every image from 10.6 on has: images from 11.0 no longer have the
 # mysql ones.
 name = "mariadb"
 default_version = "11.8"
@@ -17,10 +17,12 @@ user = "laneway"
 # writes the script, then runs the entrypoint with mariadbd.
 command = ["sh", "-c", '''printf '%s\n' "GRANT ALL PRIVILEGES ON *.* TO '{user}'@'%' WITH GRANT OPTION;" > /docker-entrypoint-initdb.d/laneway.sql && exec docker-entrypoint.sh mariadbd''']
 
-# MARIADB_AUTO_UPGRADE: when a floating tag such as 10.6 moves on to a
-# newer release than the one that last ran on the data directory, the
-# entrypoint backs up the system tables and runs mariadb-upgrade before the
-# server starts.
+# MARIADB_AUTO_UPGRADE: when the image is a newer minor or major release
+# than the one that last ran on the data directory (a floating tag such as
+# 11 moving from 11.4 to 11.8), the entrypoint backs up the system tables
+# and runs mariadb-upgrade before the server starts. A newer patch release
+# of the same series (10.6.27 to 10.6.28) needs no upgrade, so the
+# entrypoint skips it.
 [env]
 MARIADB_ROOT_PASSWORD = "{password}"
 MARIADB_USER = "{user}"
