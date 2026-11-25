@@ -25,6 +25,20 @@
                     "runOnWorktreeCreate": true,
                     "async": false
                   }
+                },
+                {
+                  "at": [
+                    "scripts"
+                  ],
+                  "match": {
+                    "name": "Laneway: open in browser"
+                  },
+                  "value": {
+                    "name": "Laneway: open in browser",
+                    "command": "sh -c 'command -v lane \u003e/dev/null 2\u003e\u00261 || { echo \"Laneway isn'\\''t installed, so this worktree has no URL to open\"; exit 0; }; lane worktree ready \u0026\u0026 lane open'",
+                    "icon": "play",
+                    "runOnWorktreeCreate": false
+                  }
                 }
               ]
             }
