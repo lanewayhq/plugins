@@ -2,6 +2,6 @@
   "$schema": "https://t3.codes/schema/t3.json",
   "scripts": [
     {"name": "Tests", "command": "npm test", "icon": "test", "runOnWorktreeCreate": false, "async": false},
-    {"name": "Laneway: open in browser", "command": "lane open", "icon": "configure", "runOnWorktreeCreate": true, "async": true}
+    {"name": "Laneway: open in browser", "command": "lane open", "icon": "configure", "runOnWorktreeCreate": true}
   ]
 }
