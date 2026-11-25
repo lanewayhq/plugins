@@ -1,7 +1,8 @@
 // Package agents is what the Harness Generators (the claude and t3 Plugins)
 // and the Laravel Boost Generator (the boost Plugin) share: the agent
-// instructions they put where a Project's agents read them, and the command
-// Harness hooks run to wait until a Worktree is Ready.
+// instructions they put where a Project's agents read them, and the commands
+// Harness hooks and scripts run: one to wait until a Worktree is Ready, and
+// one to open it in the browser.
 //
 // Generated files are committed, so everything generated must be harmless
 // for teammates without Laneway (see ReadyCommand), and Laneway merges it
@@ -26,7 +27,20 @@ import (
 // It runs under `sh` because T3 Code types its scripts into the developer's
 // interactive shell, which may not be POSIX and where `exit` would close the
 // terminal.
-const ReadyCommand = `sh -c 'command -v lane >/dev/null 2>&1 || exit 0; lane worktree ready || [ $? -eq 3 ]'`
+const ReadyCommand = ifNoLane + `exit 0; lane worktree ready || [ $? -eq 3 ]'`
+
+// OpenCommand is the shell command a Harness script runs to open the
+// Worktree at its Primary Domain in the system's default browser once it's
+// Ready: `lane worktree ready` shows a Preparing Worktree's progress, and
+// stops with why if preparing it failed. In a repository that isn't Linked,
+// or with no daemon, `lane`'s own error shows. Without `lane` it says there's
+// nothing to open and succeeds. Like ReadyCommand, it runs under `sh`.
+const OpenCommand = ifNoLane + `{ echo "Laneway isn'\''t installed, so this worktree has no URL to open"; exit 0; }; lane worktree ready && lane open'`
+
+// ifNoLane starts every command here: it runs the command under `sh`, and
+// when `lane` isn't installed, runs only what comes next, up to its `;`.
+// Each command closes the quoted script with a `'`.
+const ifNoLane = `sh -c 'command -v lane >/dev/null 2>&1 || `
 
 // ReadyTimeout is how long a Harness may let ReadyCommand run, in seconds.
 // It is longer than `lane worktree ready`'s own 10 minute timeout, so that
